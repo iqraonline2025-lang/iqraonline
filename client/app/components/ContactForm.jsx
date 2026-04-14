@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 
 export default function ContactForm() {
   const [ripples, setRipples] = useState([]);
-  const [status, setStatus] = useState('idle'); 
+  const [status, setStatus] = useState('idle'); // idle, sending, success, error
   
   const [formData, setFormData] = useState({
     name: '',
@@ -20,25 +20,34 @@ export default function ContactForm() {
     e.preventDefault();
     setStatus('sending');
 
-    // Use the Environment Variable instead of hardcoded localhost
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000';
+    // FIX: Fallback URL ensures it never tries to hit localhost on Vercel
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://iqraonline.onrender.com';
 
     try {
       const response = await fetch(`${API_BASE}/api/contact`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json' 
+        },
         body: JSON.stringify(formData),
       });
 
-      if (response.ok) {
+      const data = await response.json();
+
+      if (response.ok && data.success) {
         setStatus('success');
+        // Clear form on success
         setFormData({ name: '', email: '', service: '', message: '' });
+        // Reset status to idle after 5 seconds
         setTimeout(() => setStatus('idle'), 5000);
       } else {
+        console.error("Server Error Response:", data);
         setStatus('error');
       }
     } catch (err) {
-      console.error("Submission Error:", err);
+      // This catches the net::ERR_NAME_NOT_RESOLVED or timeouts
+      console.error("Submission Network Error:", err);
       setStatus('error');
     }
   };
@@ -68,39 +77,46 @@ export default function ContactForm() {
         </header>
         
         <form className="space-y-6" onSubmit={handleSubmit}>
-          {/* Input Wrapper Component Style */}
-          {[
-            { label: 'Full Name', name: 'name', type: 'text' },
-            { label: 'Email Address', name: 'email', type: 'email' }
-          ].map((field) => (
-            <div key={field.name} className="relative group">
-              <input 
-                type={field.type}
-                name={field.name}
-                required 
-                value={formData[field.name]}
-                onChange={handleChange}
-                placeholder=" " 
-                className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] outline-none transition-all duration-300 
-                           focus:border-purple-300 focus:ring-4 focus:ring-purple-500/5 bg-slate-50/50 focus:bg-white" 
-              />
-              <label className="absolute left-6 top-4 text-slate-400 transition-all duration-300 pointer-events-none 
-                                peer-focus:-top-3 peer-focus:left-5 peer-focus:text-[11px] peer-focus:font-bold peer-focus:text-purple-600 peer-focus:bg-white peer-focus:px-2
-                                peer-[:not(:placeholder-shown)]:-top-3 peer-[:not(:placeholder-shown)]:left-5 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2">
-                {field.label}
-              </label>
-            </div>
-          ))}
+          {/* Name Input */}
+          <div className="relative group">
+            <input 
+              type="text"
+              name="name"
+              required 
+              value={formData.name}
+              onChange={handleChange}
+              placeholder=" " 
+              className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] outline-none transition-all duration-300 focus:border-purple-300 focus:ring-4 focus:ring-purple-500/5 bg-slate-50/50 focus:bg-white" 
+            />
+            <label className="absolute left-6 top-4 text-slate-400 transition-all duration-300 pointer-events-none peer-focus:-top-3 peer-focus:left-5 peer-focus:text-[11px] peer-focus:font-bold peer-focus:text-purple-600 peer-focus:bg-white peer-focus:px-2 peer-[:not(:placeholder-shown)]:-top-3 peer-[:not(:placeholder-shown)]:left-5 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2">
+              Full Name
+            </label>
+          </div>
 
-          {/* Custom Select Box */}
+          {/* Email Input */}
+          <div className="relative group">
+            <input 
+              type="email"
+              name="email"
+              required 
+              value={formData.email}
+              onChange={handleChange}
+              placeholder=" " 
+              className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] outline-none transition-all duration-300 focus:border-purple-300 focus:ring-4 focus:ring-purple-500/5 bg-slate-50/50 focus:bg-white" 
+            />
+            <label className="absolute left-6 top-4 text-slate-400 transition-all duration-300 pointer-events-none peer-focus:-top-3 peer-focus:left-5 peer-focus:text-[11px] peer-focus:font-bold peer-focus:text-purple-600 peer-focus:bg-white peer-focus:px-2 peer-[:not(:placeholder-shown)]:-top-3 peer-[:not(:placeholder-shown)]:left-5 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2">
+              Email Address
+            </label>
+          </div>
+
+          {/* Service Selector */}
           <div className="relative group">
             <select 
               name="service" 
               required 
               value={formData.service} 
               onChange={handleChange}
-              className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] outline-none transition-all duration-300 
-                         focus:border-purple-300 focus:ring-4 focus:ring-purple-500/5 bg-slate-50/50 focus:bg-white appearance-none cursor-pointer text-slate-600"
+              className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] outline-none transition-all duration-300 focus:border-purple-300 focus:ring-4 focus:ring-purple-500/5 bg-slate-50/50 focus:bg-white appearance-none cursor-pointer text-slate-600"
             >
               <option value="" disabled>Select a Specialty</option>
               <optgroup label="Software Engineering">
@@ -119,6 +135,7 @@ export default function ContactForm() {
             </div>
           </div>
 
+          {/* Message Textarea */}
           <div className="relative group">
             <textarea 
               name="message" 
@@ -126,24 +143,20 @@ export default function ContactForm() {
               value={formData.message} 
               onChange={handleChange} 
               placeholder=" " 
-              className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] h-32 outline-none transition-all duration-300 
-                         focus:border-purple-300 focus:ring-4 focus:ring-purple-500/5 resize-none bg-slate-50/50 focus:bg-white" 
+              className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] h-32 outline-none transition-all duration-300 focus:border-purple-300 focus:ring-4 focus:ring-purple-500/5 resize-none bg-slate-50/50 focus:bg-white" 
             />
-            <label className="absolute left-6 top-4 text-slate-400 transition-all duration-300 pointer-events-none 
-                              peer-focus:-top-3 peer-focus:left-5 peer-focus:text-[11px] peer-focus:font-bold peer-focus:text-purple-600 peer-focus:bg-white peer-focus:px-2
-                              peer-[:not(:placeholder-shown)]:-top-3 peer-[:not(:placeholder-shown)]:left-5 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2">
+            <label className="absolute left-6 top-4 text-slate-400 transition-all duration-300 pointer-events-none peer-focus:-top-3 peer-focus:left-5 peer-focus:text-[11px] peer-focus:font-bold peer-focus:text-purple-600 peer-focus:bg-white peer-focus:px-2 peer-[:not(:placeholder-shown)]:-top-3 peer-[:not(:placeholder-shown)]:left-5 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2">
               Project Description
             </label>
           </div>
 
-          {/* Action Button */}
+          {/* Submit Button */}
           <div className="pt-2">
             <button
               type="submit"
               onClick={createRipple}
               disabled={status === 'sending'}
-              className="relative overflow-hidden w-full bg-gradient-to-br from-purple-600 to-indigo-700 text-white font-bold py-4 rounded-[1.25rem] 
-                         transition-all active:scale-[0.96] hover:shadow-[0_10px_25px_rgba(99,102,241,0.3)] disabled:opacity-70"
+              className="relative overflow-hidden w-full bg-gradient-to-br from-purple-600 to-indigo-700 text-white font-bold py-4 rounded-[1.25rem] transition-all active:scale-[0.96] hover:shadow-[0_10px_25px_rgba(99,102,241,0.3)] disabled:opacity-70"
             >
               <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide">
                 {status === 'sending' ? (
@@ -159,10 +172,10 @@ export default function ContactForm() {
             </button>
           </div>
 
-          {/* Feedback Messages */}
+          {/* Status Indicators */}
           <div className="h-4 flex items-center justify-center">
-            {status === 'success' && <p className="text-green-500 font-bold text-xs">✓ Your request was delivered to Gmail.</p>}
-            {status === 'error' && <p className="text-red-500 font-bold text-xs">✕ Error connecting to server.</p>}
+            {status === 'success' && <p className="text-green-500 font-bold text-xs">✓ Inquiry received. Check your Gmail shortly.</p>}
+            {status === 'error' && <p className="text-red-500 font-bold text-xs">✕ Connection failed. Please try again.</p>}
           </div>
         </form>
       </div>
