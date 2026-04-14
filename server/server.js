@@ -11,38 +11,39 @@ const app = express();
 
 // --- CORS CONFIGURATION ---
 const allowedOrigins = [
-  "https://iqraonline.vercel.app",   // Your deployed Frontend
-  "https://iqraonlineltd.com",       // Your Custom Domain
+  "https://iqraonline.vercel.app",
+  "https://iqraonlineltd.com",
   "https://www.iqraonlineltd.com",
-  "http://localhost:3000",           // Default Next.js local port
-  "https://iqraonline.onrender.com"  // Your Backend
+  "http://localhost:3000",
+  "https://iqraonline.onrender.com"
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (like mobile apps or curl) 
+    // and check if origin includes 'vercel.app' for dynamic preview deployments
+    if (!origin || allowedOrigins.includes(origin) || origin.includes('vercel.app')) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
     }
   },
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
 
 app.use(express.json());
 
 // --- DATABASE CONNECTION ---
-// Added options to prevent timeout issues on Render
 const connectDB = async () => {
   try {
+    // Note: Ensure your MONGO_URI in Render uses %40 instead of @ in the password
     await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 5000, // Wait 5 seconds before failing
+      serverSelectionTimeoutMS: 5000, 
     });
     console.log("MongoDB connected ✅");
   } catch (err) {
     console.error("MongoDB Connection Error ❌:", err.message);
-    // This will log the specific reason (auth, timeout, etc)
   }
 };
 
@@ -63,7 +64,7 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS,
+    pass: process.env.GMAIL_PASS, // 16-character App Password
   },
 });
 
@@ -71,14 +72,16 @@ app.post("/api/contact", async (req, res) => {
   const { name, email, service, message } = req.body;
 
   try {
-    // Check if DB is actually connected before trying to save
+    // 1. Safety Check: Database
     if (mongoose.connection.readyState !== 1) {
-      throw new Error("Database not connected");
+      return res.status(503).json({ success: false, message: "Database is connecting, try again in 5 seconds." });
     }
 
+    // 2. Save to Database
     const newInquiry = new Inquiry({ name, email, service, message });
     await newInquiry.save();
 
+    // 3. Prepare Email
     const mailOptions = {
       from: process.env.GMAIL_USER,
       replyTo: email,
@@ -95,19 +98,23 @@ app.post("/api/contact", async (req, res) => {
       `,
     };
 
+    // 4. Send Email
     await transporter.sendMail(mailOptions);
-    res.status(200).json({ success: true, message: "Saved and Email Sent! ✅" });
+    
+    // 5. Success Response
+    return res.status(200).json({ success: true, message: "Saved and Email Sent! ✅" });
+
   } catch (error) {
     console.error("Server Error:", error.message);
-    res.status(500).json({ 
+    // Ensure we always return a response to stop the frontend loading spinner
+    return res.status(500).json({ 
       success: false, 
-      message: "Internal Server Error", 
+      message: "Server error occurred", 
       error: error.message 
     });
   }
 });
 
-// --- ROUTES ---
 app.use("/api/projects", projectRoutes);
 
 app.get("/", (req, res) => {
