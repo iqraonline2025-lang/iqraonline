@@ -3,14 +3,35 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 import nodemailer from "nodemailer";
-import projectRoutes from "./routes/projectRoutes.js"; // Import the project routes
+import projectRoutes from "./routes/projectRoutes.js";
 
 dotenv.config();
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// --- FIXED CORS CONFIGURATION ---
+const allowedOrigins = [
+  "https://iqraonline.vercel.app",   // Vercel Frontend
+  "https://iqraonlineltd.com",       // Custom Domain
+  "https://www.iqraonlineltd.com",   // Custom Domain (with www)
+  "https://iqraonline.onrender.com"  // Backend Self-reference
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // ✅ MongoDB connection
@@ -44,7 +65,8 @@ app.post("/api/contact", async (req, res) => {
     await newInquiry.save();
 
     const mailOptions = {
-      from: email,
+      from: process.env.GMAIL_USER, // Gmail requires the 'from' to be the authenticated user
+      replyTo: email,               // This allows you to hit 'Reply' to the sender
       to: process.env.GMAIL_USER,
       subject: `New Request: ${service} from ${name}`,
       html: `
@@ -61,16 +83,13 @@ app.post("/api/contact", async (req, res) => {
     await transporter.sendMail(mailOptions);
     res.status(200).json({ success: true, message: "Saved to DB and Email Sent! ✅" });
   } catch (error) {
-    console.error(error);
+    console.error("Mail Error:", error);
     res.status(500).json({ success: false, message: "Error processing request ❌" });
   }
 });
 
 // --- PROJECT ROUTES ---
-// This connects the logic from your routes/projectRoutes.js file
-// Your admin panel will call http://localhost:5000/api/projects
 app.use("/api/projects", projectRoutes);
-
 
 app.get("/", (req, res) => {
   res.send("Server + Projects API working 🚀");
