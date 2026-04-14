@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 
 export default function ContactForm() {
   const [ripples, setRipples] = useState([]);
-  const [status, setStatus] = useState('idle'); // idle, sending, success, error
+  const [status, setStatus] = useState('idle');
   
   const [formData, setFormData] = useState({
     name: '',
@@ -20,44 +20,35 @@ export default function ContactForm() {
     e.preventDefault();
     setStatus('sending');
 
-    // Use hardcoded URL to ensure no environment variable typos
-    const API_BASE = "https://iqraonline.onrender.com";
+    // 1. WhatsApp Redirect Logic
+    // Replace '1234567890' with your actual WhatsApp number (include country code, no '+')
+    const WHATSAPP_NUMBER = "+447303179101"; // Example for UK. Change to yours.
+    const messageText = `*New Inquiry from IQRA Online*%0A%0A` +
+                        `*Name:* ${formData.name}%0A` +
+                        `*Email:* ${formData.email}%0A` +
+                        `*Service:* ${formData.service}%0A` +
+                        `*Message:* ${formData.message}`;
+    
+    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${messageText}`;
 
-    // Create a 60-second timeout to allow Render Free Tier to wake up
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
-
+    // 2. Optional: Still try to save to your DB in the background
     try {
-      const response = await fetch(`${API_BASE}/api/contact`, {
+      fetch("https://iqraonline.onrender.com/api/contact", {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json' 
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
-        signal: controller.signal
       });
-
-      const data = await response.json();
-      clearTimeout(timeoutId);
-
-      if (response.ok && data.success) {
-        setStatus('success');
-        setFormData({ name: '', email: '', service: '', message: '' });
-        setTimeout(() => setStatus('idle'), 5000);
-      } else {
-        console.error("Server Error:", data.message);
-        setStatus('error');
-      }
     } catch (err) {
-      clearTimeout(timeoutId);
-      console.error("Submission Error:", err);
-      // Check if it was a timeout
-      if (err.name === 'AbortError') {
-        alert("The server is taking a while to wake up. Please try clicking send one more time.");
-      }
-      setStatus('error');
+      console.log("DB background save failed, but redirecting to WhatsApp anyway.");
     }
+
+    // 3. Execute Redirect
+    setStatus('success');
+    window.open(whatsappUrl, '_blank');
+    
+    // Reset form
+    setFormData({ name: '', email: '', service: '', message: '' });
+    setTimeout(() => setStatus('idle'), 5000);
   };
 
   const createRipple = (e) => {
@@ -73,7 +64,6 @@ export default function ContactForm() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#FDFDFF] p-6 text-slate-900">
       <div className="max-w-md w-full bg-white shadow-[0_20px_50px_rgba(139,92,246,0.12)] rounded-[3rem] border border-purple-50 p-10 relative">
-        
         <header className="mb-10 text-center">
           <div className="inline-block px-4 py-1.5 mb-4 text-[11px] font-bold tracking-[0.1em] text-purple-600 uppercase bg-purple-50 rounded-full">
             Inquiry Portal
@@ -81,19 +71,14 @@ export default function ContactForm() {
           <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">
             Let's <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600">Collaborate</span>
           </h2>
-          <p className="text-slate-400 text-sm mt-3 font-medium">Digital Solutions & Scriptural Research</p>
+          <p className="text-slate-400 text-sm mt-3 font-medium">Direct WhatsApp Response</p>
         </header>
         
         <form className="space-y-6" onSubmit={handleSubmit}>
-          {/* Name Input */}
           <div className="relative group">
             <input 
-              type="text"
-              name="name"
-              required 
-              value={formData.name}
-              onChange={handleChange}
-              placeholder=" " 
+              type="text" name="name" required 
+              value={formData.name} onChange={handleChange} placeholder=" " 
               className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] outline-none transition-all duration-300 focus:border-purple-300 focus:ring-4 focus:ring-purple-500/5 bg-slate-50/50 focus:bg-white" 
             />
             <label className="absolute left-6 top-4 text-slate-400 transition-all duration-300 pointer-events-none peer-focus:-top-3 peer-focus:left-5 peer-focus:text-[11px] peer-focus:font-bold peer-focus:text-purple-600 peer-focus:bg-white peer-focus:px-2 peer-[:not(:placeholder-shown)]:-top-3 peer-[:not(:placeholder-shown)]:left-5 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2">
@@ -101,15 +86,10 @@ export default function ContactForm() {
             </label>
           </div>
 
-          {/* Email Input */}
           <div className="relative group">
             <input 
-              type="email"
-              name="email"
-              required 
-              value={formData.email}
-              onChange={handleChange}
-              placeholder=" " 
+              type="email" name="email" required 
+              value={formData.email} onChange={handleChange} placeholder=" " 
               className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] outline-none transition-all duration-300 focus:border-purple-300 focus:ring-4 focus:ring-purple-500/5 bg-slate-50/50 focus:bg-white" 
             />
             <label className="absolute left-6 top-4 text-slate-400 transition-all duration-300 pointer-events-none peer-focus:-top-3 peer-focus:left-5 peer-focus:text-[11px] peer-focus:font-bold peer-focus:text-purple-600 peer-focus:bg-white peer-focus:px-2 peer-[:not(:placeholder-shown)]:-top-3 peer-[:not(:placeholder-shown)]:left-5 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2">
@@ -117,80 +97,45 @@ export default function ContactForm() {
             </label>
           </div>
 
-          {/* Service Selector */}
           <div className="relative group">
             <select 
-              name="service" 
-              required 
-              value={formData.service} 
-              onChange={handleChange}
-              className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] outline-none transition-all duration-300 focus:border-purple-300 focus:ring-4 focus:ring-purple-500/5 bg-slate-50/50 focus:bg-white appearance-none cursor-pointer text-slate-600"
+              name="service" required 
+              value={formData.service} onChange={handleChange}
+              className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] outline-none transition-all duration-300 focus:border-purple-300 bg-slate-50/50 focus:bg-white appearance-none cursor-pointer text-slate-600"
             >
               <option value="" disabled>Select a Specialty</option>
-              <optgroup label="Software Engineering">
-                <option value="Web Development">Full-Stack Web Development</option>
-                <option value="App Development">Mobile App Development</option>
-              </optgroup>
-              <optgroup label="Islamic Studies">
-                <option value="Quran/Hadith Investigation">Quran & Hadith Investigation</option>
-                <option value="Theological Consultation">Theological Consultation</option>
-              </optgroup>
+              <option value="Web Development">Full-Stack Web Development</option>
+              <option value="Theological Consultation">Theological Consultation</option>
             </select>
-            <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-purple-400 group-focus-within:rotate-180 transition-transform duration-300">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
           </div>
 
-          {/* Message Textarea */}
           <div className="relative group">
             <textarea 
-              name="message" 
-              required 
-              value={formData.message} 
-              onChange={handleChange} 
-              placeholder=" " 
-              className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] h-32 outline-none transition-all duration-300 focus:border-purple-300 focus:ring-4 focus:ring-purple-500/5 resize-none bg-slate-50/50 focus:bg-white" 
+              name="message" required 
+              value={formData.message} onChange={handleChange} placeholder=" " 
+              className="peer w-full px-6 py-4 border-2 border-slate-50 rounded-[1.25rem] h-32 outline-none transition-all duration-300 focus:border-purple-300 resize-none bg-slate-50/50 focus:bg-white" 
             />
             <label className="absolute left-6 top-4 text-slate-400 transition-all duration-300 pointer-events-none peer-focus:-top-3 peer-focus:left-5 peer-focus:text-[11px] peer-focus:font-bold peer-focus:text-purple-600 peer-focus:bg-white peer-focus:px-2 peer-[:not(:placeholder-shown)]:-top-3 peer-[:not(:placeholder-shown)]:left-5 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:bg-white peer-[:not(:placeholder-shown)]:px-2">
               Project Description
             </label>
           </div>
 
-          {/* Action Button */}
-          <div className="pt-2">
-            <button
-              type="submit"
-              onClick={createRipple}
-              disabled={status === 'sending'}
-              className="relative overflow-hidden w-full bg-gradient-to-br from-purple-600 to-indigo-700 text-white font-bold py-4 rounded-[1.25rem] transition-all active:scale-[0.96] hover:shadow-[0_10px_25px_rgba(99,102,241,0.3)] disabled:opacity-70"
-            >
-              <span className="relative z-10 flex items-center justify-center gap-2 tracking-wide">
-                {status === 'sending' ? (
-                  <div className="flex items-center gap-2">
-                    <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span>Sending...</span>
-                  </div>
-                ) : 'Send Message'}
-              </span>
-              {ripples.map((ripple) => (
-                <span key={ripple.id} className="absolute bg-white/30 rounded-full animate-ripple pointer-events-none" style={{ left: ripple.x, top: ripple.y, transform: 'translate(-50%, -50%)' }} />
-              ))}
-            </button>
-          </div>
+          <button
+            type="submit"
+            onClick={createRipple}
+            disabled={status === 'sending'}
+            className="relative overflow-hidden w-full bg-gradient-to-br from-purple-600 to-indigo-700 text-white font-bold py-4 rounded-[1.25rem] transition-all active:scale-[0.96] hover:shadow-[0_10px_25px_rgba(99,102,241,0.3)] disabled:opacity-70"
+          >
+            <span className="relative z-10">
+              {status === 'sending' ? 'Opening WhatsApp...' : 'Send to WhatsApp'}
+            </span>
+            {ripples.map((ripple) => (
+              <span key={ripple.id} className="absolute bg-white/30 rounded-full animate-ripple pointer-events-none" style={{ left: ripple.x, top: ripple.y, transform: 'translate(-50%, -50%)' }} />
+            ))}
+          </button>
 
-          {/* Feedback Messages */}
           <div className="h-4 flex items-center justify-center text-center">
-            {status === 'success' && <p className="text-green-500 font-bold text-xs animate-bounce">✓ Sent! Check your Gmail shortly.</p>}
-            {status === 'error' && (
-              <p className="text-red-500 font-bold text-xs">
-                ✕ Connection failed. Try clicking again.
-              </p>
-            )}
+            {status === 'success' && <p className="text-green-500 font-bold text-xs animate-bounce">✓ Redirecting to chat...</p>}
           </div>
         </form>
       </div>
